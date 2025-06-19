@@ -1,7 +1,7 @@
 # Movie Recommendation App
 
 A Streamlit-based movie recommendation application that suggests similar movies based on the current 100 popular movies with content-based filtering. The algorithm I made uses TF-IDF and cosine similarity to suggest similar movies. The app uses TMDB API for movie data and stores it in a csv file. It provides a user-friendly interface for discovering new movies.
-<img src="C:\Users\ADMIN\Downloads" alt="Alt text" width="500" height="300">
+
 ## Features
 
 - Content-based movie recommendations
