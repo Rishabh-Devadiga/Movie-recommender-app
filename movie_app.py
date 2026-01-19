@@ -6,44 +6,10 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import os
-from dotenv import load_dotenv
+from utils import safe_get, create_movies_csv
 
-# Load environment variables
-load_dotenv()
-
-# Get API key from environment variable
-API_KEY = os.getenv('TMDB_API_KEY')
-if not API_KEY:
-    st.error("⚠️ TMDB API key not found. Please set the TMDB_API_KEY environment variable.")
-    st.stop()
-
-st.write("✅ App started")
-
-# Improved safe_get function
-def safe_get(url, retries=3, delay=2):
-    for i in range(retries):
-        try:
-            print(f"Attempting to fetch data from: {url}")
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            print("Data fetched successfully.")
-            return response
-        except requests.exceptions.ConnectionError as e:
-            print(f"ConnectionError: {e}. Retrying in {delay} seconds...")
-            time.sleep(delay)
-            delay *= 2
-        except requests.exceptions.HTTPError as e:
-            print(f"HTTPError: {e}. Status code: {response.status_code}")
-            break
-        except requests.exceptions.Timeout as e:
-            print(f"TimeoutError: {e}. Retrying in {delay} seconds...")
-            time.sleep(delay)
-            delay *= 2
-        except requests.exceptions.RequestException as e:
-            print(f"⚠ Request failed: {e}")
-            break
-    print("Failed to fetch data after several attempts.")
-    return None
+# Get API key from Streamlit secrets
+API_KEY = st.secrets.get('TMDB_API_KEY')
 
 # Theme Toggle
 use_light_mode = st.toggle("☀ Light Mode", value=False)
@@ -127,41 +93,6 @@ def add_to_watchlist(movie):
         return True
     return False
 
-# Create a function to generate the movies CSV
-def create_movies_csv():
-    movies_data = []
-    try:
-        # Fetch popular movies from TMDB
-        url = f'https://api.themoviedb.org/3/movie/popular?api_key={API_KEY}&language=en-US&page=1'
-        response = safe_get(url)
-        if response and response.status_code == 200:
-            data = response.json()
-            for movie in data['results'][:100]:  # Get first 100 movies
-                # Get detailed movie info
-                movie_id = movie['id']
-                details_url = f'https://api.themoviedb.org/3/movie/{movie_id}?api_key={API_KEY}'
-                details_response = safe_get(details_url)
-                
-                if details_response and details_response.status_code == 200:
-                    details = details_response.json()
-                    movies_data.append({
-                        'id': movie_id,
-                        'title': movie['title'],
-                        'overview': movie['overview'],
-                        'genres': ' '.join([genre['name'] for genre in details.get('genres', [])]),
-                        'poster_path': movie['poster_path'],
-                        'release_date': movie['release_date'],
-                        'vote_average': movie['vote_average']
-                    })
-                time.sleep(0.5)  # Be nice to TMDB API
-        
-        # Create DataFrame and save to CSV
-        df = pd.DataFrame(movies_data)
-        df.to_csv('movies.csv', index=False)
-        return df
-    except Exception as e:
-        st.error(f"Error creating movies database: {str(e)}")
-        return None
 
 # Function to get movie recommendations based on content similarity
 def get_content_based_recommendations(movie_title, n_recommendations=5):
@@ -231,19 +162,23 @@ movie_query = st.text_input("Enter a movie name: ")
 
 selected_movie = None
 if movie_query:
-    url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={movie_query}"
-    response = safe_get(url)
-    if not response:
-        st.error("⚠ Failed to fetch data from TMDB after several attempts.")
-        st.stop()
-    
-    if response.status_code == 200:
-        results = response.json().get("results", [])
-        movie_options = [movie["title"] for movie in results[:5]]
-        if movie_options:
-            selected_movie = st.selectbox("Did you mean:", movie_options)
-        else:
-            st.write("🔍 No matching movies found.")
+    if not API_KEY:
+        st.error("⚠️ TMDB API key is required to search for movies.")
+        selected_movie = None
+    else:
+        url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={movie_query}"
+        response = safe_get(url)
+        if not response:
+            st.error("⚠ Failed to fetch data from TMDB after several attempts.")
+            st.stop()
+        
+        if response.status_code == 200:
+            results = response.json().get("results", [])
+            movie_options = [movie["title"] for movie in results[:5]]
+            if movie_options:
+                selected_movie = st.selectbox("Did you mean:", movie_options)
+            else:
+                st.write("🔍 No matching movies found.")
 
 # Get recommendations when button is clicked
 if selected_movie and st.button("Get Recommendations"):
