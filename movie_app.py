@@ -77,6 +77,9 @@ else:
 #Streamlit UI 
 st.title("📽 Movie Recommendor")
 
+if not API_KEY:
+    st.warning("⚠️ TMDB API key is not set. Movie search and recommendations will not work. Please set the API key in app secrets.")
+
 # Initialize session state variables
 if "watchlist" not in st.session_state:
     st.session_state.watchlist = []
@@ -96,6 +99,9 @@ def add_to_watchlist(movie):
 
 # Function to get movie recommendations based on content similarity
 def get_content_based_recommendations(movie_title, n_recommendations=5):
+    if not os.path.exists('movies.csv'):
+        st.error("Movies database not available. Please ensure API key is set and database is created.")
+        return []
     try:
         # Read the movies database
         df = pd.read_csv('movies.csv')
@@ -146,7 +152,7 @@ def get_content_based_recommendations(movie_title, n_recommendations=5):
         return []
 
 # Initialize movies database if it doesn't exist
-if not os.path.exists('movies.csv'):
+if not os.path.exists('movies.csv') and API_KEY:
     with st.spinner("Creating movies database..."):
         create_movies_csv()
 
